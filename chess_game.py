@@ -30,7 +30,7 @@ def attackScore( board, color, sq_value = 12 ):
         #for attacking_sq in board.attacking_squares(chess.WHITE, sq):
         my_attacks = my_attacks + [len(board.attackers(color, sq))]
         op_attacks = op_attacks + [len(board.attackers(op_color, sq))]
-        delta_attacks = map(lambda x,y: if (x>y) sq_value else 0 , my_attacks, op_attacks)
+        delta_attacks = map(lambda x,y: sq_value if (x>y) else 0, my_attacks, op_attacks)
     return sum(delta_attacks)
 
 # Returns true if opponent would take piece at this square
@@ -147,7 +147,7 @@ def pigglyv2( node ):
     op_color = opColor(color)
     moves = makeMoves( node );
     scored_moves = dict()
-    best_score = -1000
+    best_score = -10000
     for m in moves:
         node.push(m)
         my_mat = calculateMaterialScore( node, color )
@@ -164,10 +164,10 @@ def pigglyv2( node ):
         scored_moves[m] = score
         if (score >= best_score):
             best_score = score
-        node.pop()
-                
+        node.pop()              
     top_moves = {k: v for k, v in scored_moves.iteritems() if v >= best_score - 0.5}
-    print top_moves
+    if (len(top_moves) == 0 ):
+        print "Error - no top moves ", scored_moves
     return list(top_moves)[random.randrange(0,len(top_moves))]
 
 
@@ -179,7 +179,7 @@ def piggly( node ):
     op_color = chess.WHITE if (color == chess.BLACK) else chess.BLACK
     moves = makeMoves( node );
     scored_moves = dict()
-    best_score = -100
+    best_score = -10000
     for m in moves:
         node.push(m)
         my_mat = calculateMaterialScore( node, color )
@@ -203,7 +203,7 @@ def pigglyv3( node ):
     op_color = opColor(color)
     moves = makeMoves( node );
     scored_moves = dict()
-    best_score = -1000
+    best_score = -10000
     for m in moves:
         node.push(m)
         my_mat = calculateMaterialScore( node, color )
@@ -212,19 +212,19 @@ def pigglyv3( node ):
         if (node.is_checkmate()):
             node.pop()
             return m
-        my_squares = allPieceSquares(  node, color )
         score = my_mat - op_mat
+        my_squares = allPieceSquares(  node, color )
         for sq in my_squares:
             if (dogPile(node, sq, color)):
                 score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
+        score += attackScore( node, color )
         scored_moves[m] = score
         if (score >= best_score):
             best_score = score
-        node.pop()
-        
-                
+        node.pop()          
     top_moves = {k: v for k, v in scored_moves.iteritems() if v >= best_score - 0.5}
-    print top_moves
+    if (len(top_moves) == 0 ):
+        print "Error - no top moves ", scored_moves
     return list(top_moves)[random.randrange(0,len(top_moves))]
 
 
