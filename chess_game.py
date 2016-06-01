@@ -142,108 +142,78 @@ def calculateNetCover( node, color, op_color, sq ):
         net += scoreSquare( node, d )
     return net
 
-def pigglyv2( node ):
-    color = node.turn
-    op_color = opColor(color)
+def naiveShell( boardScorer, node ):    
     moves = makeMoves( node );
     scored_moves = dict()
     best_score = -10000
-    for m in moves:
-        node.push(m)
-        my_mat = calculateMaterialScore( node, color )
-        op_mat = calculateMaterialScore( node, op_color )
-        # early out if it's checkmate
-        if (node.is_checkmate()):
-            node.pop()
-            return m
-        my_squares = allPieceSquares(  node, color )
-        score = my_mat - op_mat
-        for sq in my_squares:
-            if (dogPile(node, sq, color)):
-                score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
-        scored_moves[m] = score
-        if (score >= best_score):
-            best_score = score
-        node.pop()              
-    top_moves = {k: v for k, v in scored_moves.iteritems() if v >= best_score - 0.5}
-    if (len(top_moves) == 0 ):
-        print "Error - no top moves ", scored_moves
-    return list(top_moves)[random.randrange(0,len(top_moves))]
-
-
-            
-
-
-def piggly( node ):
+    # Color is 'my' color for purpose of scoring
     color = node.turn
-    op_color = chess.WHITE if (color == chess.BLACK) else chess.BLACK
-    moves = makeMoves( node );
-    scored_moves = dict()
-    best_score = -10000
     for m in moves:
         node.push(m)
-        my_mat = calculateMaterialScore( node, color )
-        op_mat = calculateMaterialScore( node, op_color )
-        # early out if it's checkmate
-        if (node.is_checkmate()):
-            node.pop()
-            return m
-        score = my_mat - op_mat
-#        print str(m), " score ", score
+        score = boardScorer( node, color )
         scored_moves[m] = score
         if (score >= best_score):
             best_score = score
         node.pop()
-    top_moves = {k: v for k, v in scored_moves.iteritems() if v >= best_score - 0.5}
-    return list(top_moves)[random.randrange(0,len(top_moves))]
-
-
-def pigglyv3( node ):
-    color = node.turn
-    op_color = opColor(color)
-    moves = makeMoves( node );
-    scored_moves = dict()
-    best_score = -10000
-    for m in moves:
-        node.push(m)
-        my_mat = calculateMaterialScore( node, color )
-        op_mat = calculateMaterialScore( node, op_color )
-        # early out if it's checkmate
-        if (node.is_checkmate()):
-            node.pop()
-            return m
-        score = my_mat - op_mat
-        my_squares = allPieceSquares(  node, color )
-        for sq in my_squares:
-            if (dogPile(node, sq, color)):
-                score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
-        score += attackScore( node, color )
-        scored_moves[m] = score
-        if (score >= best_score):
-            best_score = score
-        node.pop()          
-    top_moves = {k: v for k, v in scored_moves.iteritems() if v >= best_score - 0.5}
+    top_moves = {k: v for k, v in scored_moves.iteritems() if v >= best_score - 100}
     if (len(top_moves) == 0 ):
         print "Error - no top moves ", scored_moves
     return list(top_moves)[random.randrange(0,len(top_moves))]
 
+def naivePiggly( node ):
+    return naiveShell( piggly, node )
+
+def naivePigglyv2( node ):
+    return naiveShell( pigglyv2, node )
+
+def naivePigglyv3( node ):
+    return naiveShell( pigglyv3, node )
+
+def pigglyv2( node, color ):
+    op_color = opColor( color )
+    my_mat = calculateMaterialScore( node, color )
+    op_mat = calculateMaterialScore( node, op_color )
+    # early out if it's checkmate
+    if (node.is_checkmate()):
+        return 10000
+    if (node.is_stalemate() and my_mat > op_mat ):
+        return -5000
+    my_squares = allPieceSquares(  node, color )
+    score = my_mat - op_mat
+    for sq in my_squares:
+        if (dogPile(node, sq, color)):
+            score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
+    return score
 
 
-def getAttacks( color ):
-    op_color = chess.WHITE if (color == chess.BLACK) else chess.BLACK
-    my_attacks = []
-    their_attacks = []
-    net_points = []
-    for sq in chess.SQUARES: # or use an array?  Right now I'm assuming sq comes in numerical order
-        #for attacking_sq in board.attacking_squares(chess.WHITE, sq):
-        my_attacks = my_attacks + [len(board.attackers(color, sq))]
-        their_attacks = their_attacks + [len(board.attackers(op_color, sq))]
-        delta_attacks = map(lambda x,y:x-y, wh_attacks, bl_attacks)
-        #net = 
-    return (my_attacks, their_attacks, delta_attacks)
+def piggly( node, color ):
+    op_color = opColor(color)
+    my_mat = calculateMaterialScore( node, color )
+    op_mat = calculateMaterialScore( node, op_color )
+    # early out if it's checkmate
+    if (node.is_checkmate()):
+        return 10000
+    if (node.is_stalemate() and my_mat > op_mat ):
+        return -5000
+    return my_mat - op_mat
 
 
-
+def pigglyv3( node, color ):
+    op_color = opColor(color)
+    my_mat = calculateMaterialScore( node, color )
+    op_mat = calculateMaterialScore( node, op_color )
+    # early out if it's checkmate
+    if (node.is_checkmate()):
+        return 10000
+    if (node.is_stalemate() and my_mat > op_mat ):
+        return -5000
+    score = my_mat - op_mat
+    my_squares = allPieceSquares(  node, color )
+    for sq in my_squares:
+        if (dogPile(node, sq, color)):
+            score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
+    score += attackScore( node, color )
+    return score
 
 
 def rando( node ):
@@ -291,43 +261,8 @@ class game:
         while ( not(self.board.is_game_over()) ):
             self.turn()
             if (self.board.is_game_over()):
+                print "White: ", self.white, " -  Black: ", self.black
+                print self.board.result()
                 return self.board.result()
             if (pause):
                 raw_input('<Enter to continue>\n')
-        print self.board.result()
-        
-        
-                  
-
-##def pigscore( node, color, op_color ):
-##    my_squares = allPieceSquares( color )
-##    for sq in my_squares:
-##        s = 0 # just to let this load...
-##
-##    s = 0
-##    bsq = node.pieces( chess.BISHOP, color )
-##    s += len(bsq) * 370
-##    if (len(bsq) => 2): s += 30
-##    s+= len(bsq.intersection({chess.B2, chess.G2, chess.B7, chess.G7})) * 25
-##    s-= len(bsq.intersection({chess.C1, chess.C8, chess.F1, chess.F8})) * 25
-##    # closed...
-##    ksq = node.pieces( chess.BISHOP, color )
-##    s += len(bsq) * 330
-##    s-= len(ksq.intersection({chess.B1, chess.B8, chess.G1, chess.G8})) * 25
-##    s-= len(ksq.intersection({chess.BB_FILE_A, chess.BB_FILE_H})) * 50
-##    s += len(node.pieces( chess.ROOK, color )) * 500
-##    s += len(node.pieces( chess.QUEEN, color )) * 900
-##        my_mat = calculateMaterialScore( node, color )
-##        op_mat = calculateMaterialScore( node, op_color )
-##        # early out if it's checkmate
-##        if (node.is_checkmate()):
-##            node.pop()
-##            return m
-##        score = my_mat - op_mat
-###        print str(m), " score ", score
-##        scored_moves[m] = score
-##        if (score >= best_score):
-##            best_score = score
-##        node.pop()
-##    top_moves = {k: v for k, v in scored_moves.iteritems() if v >= best_score - 0.5}
-##    return list(top_moves)[random.randrange(0,len(top_moves))]
