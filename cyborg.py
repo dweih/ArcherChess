@@ -1,12 +1,14 @@
 import networkx as nx
 import chess
+from operator import itemgetter
+import math
 
 # Dummy functions for testing
-def dummyBoardScorer( b ):
+def dummyBoardScorer( b, c ):
     return 0.5
 
-def dummyProbScorer( results ):
-    sorted(results, key=lambda x:x[0], reverse=True)
+def dummyProbScorer( results, my_move ):
+    sorted(results, key=lambda x:x[0], reverse=not(my_move)) # Biggest first for me, lowest for them
     probs = [0]*len(results)
     probs[0]=0.75
     probs[1]=0.25
@@ -14,13 +16,18 @@ def dummyProbScorer( results ):
     scores = zip(*results)[0]
     return zip(probs, scores, children)
 
-# Takes list of (score, confidence, board), and then points to invest
+# Takes list of (score, confidence, board), my_move, and points to invest
 # Returns list of (points, board) for investments
-def dummyPointAllocator( edgeInfo, points ):
-    points = max(points, len(edgeInfo))
-    investments = []
-    for (s,c,b) in edgeInfo:
-        investments += [(points/len(edgeInfo),b)]
+def dummyPointAllocator( edgeInfo, my_move, points ):
+    if len(edgeInfo) == 0:
+        return []
+    if len(edgeInfo) < 3:
+        return [(points, edgeInfo[0][2])]
+    sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=not(my_move))
+    print 'edge info\n', sorted_edgeInfo[0]
+    investments = [(math.ceil(points/2.0),sorted_edgeInfo[0][2])]
+    investments += [(math.ceil(points/4.0),sorted_edgeInfo[1][2])]
+    investments += [(math.ceil(points/4.0),sorted_edgeInfo[2][2])]
     return investments
 
 
@@ -33,20 +40,16 @@ def makeMoves( node ):
 
 # Returns (score, confidence, child) for each child, combines them to set
 # values for the node.  Made to be called recursively starting at the root
-# probScorer is a function with input list of (scores, confidences, child),
+# probScorer is a function with input list of (scores, confidences, child) and my_move,
 #           returning list of (probabilities, scores, child) for use in updating edges
 def scoreChild(cyborg, board, probScorer):
+    my_move = (board.turn == cyborg.color)
     children = cyborg.g.successors(board)
     if (len(children) == 0):
-        print board, cyborg.g.node[board]
         return (cyborg.g.node[board]['score'], cyborg.g.node[board]['conf'], board)
-
-    # Remove parent from list if it's there - not sure if this is good...
- #   children.remove(board)
-
     child_results = map(lambda x: scoreChild(cyborg, x, probScorer), children)
     # Calculate probabilities based on scores and confidences and assign to edges
-    probScoreChildList = probScorer(child_results)
+    probScoreChildList = probScorer(child_results, my_move)
     # Annotate edges with probability
     cyborg.annotateEdges(board, probScoreChildList)
     # Calculate this board's score using child scores and probabilities
@@ -54,7 +57,6 @@ def scoreChild(cyborg, board, probScorer):
     # Sum confidences for children
     my_conf = sum(map(lambda (s, c, b):c, child_results))
     # Return score and confidence
-    print "setting info for\n", board, "   Data ", my_score, " ", my_conf
     cyborg.g.node[board]['score'] = my_score
     cyborg.g.node[board]['conf'] = my_conf
     return (my_score, my_conf, board)
@@ -70,28 +72,27 @@ def expandGraph( cyborg, points, board, pointAllocator ):
     nextMoves = cyborg.getMoveEdges(board)
     # If points > 0 and board has no children, call expandNode on the board and dec(points)
     if (len(nextMoves) == 0):
-        print "Expanding from ", board
         cyborg.expandNode( board )
         expandGraph( cyborg, points-1, board, pointAllocator)
+        print "expanding leaf -1 point"
     # Collect info for pointAllocator - list of (score, confidence, board)
 #  NOT including probability since in current model it won't be avaiilable for edges built on the fly
     paInput = []
+    my_move = board.turn == cyborg.color
     for (b,nb) in nextMoves:
-        print b
-        print nb
-        print cyborg.g.node[nb], cyborg.g.node[b]
         paInput += [(cyborg.g.node[nb]['score'], cyborg.g.node[nb]['conf'],nb)]
     # Get back list of (points to invest, board)
-    investmentList = cyborg.pointAllocator( paInput, points )
-    # Call expandGraph for 'points' on the board from each 'move'
-    print "Inv ", investmentList
+    investmentList = cyborg.pointAllocator( paInput, my_move, points )
+    # Call expandGraph for calculated number of points on the board from each move
+    print "allocating ", investmentList
     for (movePoints, board) in investmentList:
         expandGraph( cyborg, movePoints, board, pointAllocator)
 
 class cyborg:
-    def __init__(self, board=chess.Board(), boardScorer=dummyBoardScorer, probScorer=dummyProbScorer, pointAllocator=dummyPointAllocator):
+    def __init__(self, board=chess.Board(), color=chess.WHITE, boardScorer=dummyBoardScorer, probScorer=dummyProbScorer, pointAllocator=dummyPointAllocator):
         self.g = nx.DiGraph()
         self.current_board = board
+        self.color = color
         self.boardScorer = boardScorer
         self.probScorer = probScorer
         self.pointAllocator = pointAllocator
@@ -116,8 +117,8 @@ class cyborg:
             board.pop()
             return copy
         moves = makeMoves( board )
-        scores = map(self.boardScorer, moves)
         boards = map(lambda x: boardClone(board, x), moves)
+        scores = map(lambda x: self.boardScorer(x, self.color), boards)
         nodeInfo = zip([board]*len(boards), boards, [1]*len(boards) ,scores, moves) # Confidence of new board is 1
         map(self.addNode, nodeInfo)
         return
@@ -139,14 +140,36 @@ class cyborg:
             self.g.edge[from_board][psb[2]]['prob'] = psb[0]
         return
 
+    # Get scored moves from a board - set up for choosing a move
+    def getScoredMoves( self, board = None ):
+        if (board == None):
+            board = self.current_board
+        edges = self.getMoveEdges( board )
+        moves = []
+        for (cb,nb) in edges:
+            moves += [(self.g.edge[cb][nb]['move'], self.g.node[nb]['score'])]
+        return moves
+
+    # This just gets the next move, but doesn't play it
+    def getNextMove( self, board = None ):
+        if (board == None):
+            board = self.current_board 
+        scoredMoves = self.getScoredMoves( board )
+        return max(scoredMoves,key=itemgetter(1))
+    
+    def chooseMove( self ):
+# Need some smarts here that I can't figure out right now
+        self.Build( 20 )
+        self.Build( 20 )
+        return self.getNextMove()
 
 
-        
-
-        
-        
-       
-#    def build(self, board, points):
+    def acceptMove( self, board ):
+        # This is where we move current board up the graph to other player's move
+# Not sure if we should push the move or just set the board...
+        print board
+        self.current_board = board
+        return
          
     
         
