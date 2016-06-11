@@ -24,7 +24,6 @@ def dummyPointAllocator( edgeInfo, my_move, points ):
     if len(edgeInfo) < 3:
         return [(points, edgeInfo[0][2])]
     sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=not(my_move))
-    print 'edge info\n', sorted_edgeInfo[0]
     investments = [(math.ceil(points/2.0),sorted_edgeInfo[0][2])]
     investments += [(math.ceil(points/4.0),sorted_edgeInfo[1][2])]
     investments += [(math.ceil(points/4.0),sorted_edgeInfo[2][2])]
@@ -74,7 +73,6 @@ def expandGraph( cyborg, points, board, pointAllocator ):
     if (len(nextMoves) == 0):
         cyborg.expandNode( board )
         expandGraph( cyborg, points-1, board, pointAllocator)
-        print "expanding leaf -1 point"
     # Collect info for pointAllocator - list of (score, confidence, board)
 #  NOT including probability since in current model it won't be avaiilable for edges built on the fly
     paInput = []
@@ -84,7 +82,6 @@ def expandGraph( cyborg, points, board, pointAllocator ):
     # Get back list of (points to invest, board)
     investmentList = cyborg.pointAllocator( paInput, my_move, points )
     # Call expandGraph for calculated number of points on the board from each move
-    print "allocating ", investmentList
     for (movePoints, board) in investmentList:
         expandGraph( cyborg, movePoints, board, pointAllocator)
 
@@ -111,15 +108,13 @@ class cyborg:
         return self.g.out_edges(board)
 
     def expandNode(self, board):
-        def boardClone( board, move ):
-            board.push(move)
-            copy = board.copy()
-            board.pop()
-            return copy
         moves = makeMoves( board )
-        boards = map(lambda x: boardClone(board, x), moves)
-        scores = map(lambda x: self.boardScorer(x, self.color), boards)
-        nodeInfo = zip([board]*len(boards), boards, [1]*len(boards) ,scores, moves) # Confidence of new board is 1
+        nodeInfo = []
+        for m in moves:
+            board.push(m)
+            newBoard = board.copy()
+            board.pop()
+            nodeInfo += [(board, newBoard, 1, self.boardScorer(newBoard, self.color), m)] # Confidence of new board is 1
         map(self.addNode, nodeInfo)
         return
 
@@ -132,6 +127,7 @@ class cyborg:
     def Build(self, points):
         expandGraph(self, points, self.current_board, self.pointAllocator)
         self.Score()
+        print 'Built to ', len(self.g.nodes()), ' nodes'
         return
 
     # Takes list of triples of (prob,scores,board)
@@ -155,20 +151,24 @@ class cyborg:
         if (board == None):
             board = self.current_board 
         scoredMoves = self.getScoredMoves( board )
-        return max(scoredMoves,key=itemgetter(1))
-    
-    def chooseMove( self ):
+        bestMove = max(scoredMoves,key=itemgetter(1))
+        return bestMoves
+
+    # Designed to be the right function for 'game' to call
+    def chooseMove( self, board ):
 # Need some smarts here that I can't figure out right now
-        self.Build( 20 )
-        self.Build( 20 )
+        self.Build( 5 )
+        self.Build( 5 )
+        m = self.getNextMove()
+        print m
         return self.getNextMove()
 
 
-    def acceptMove( self, board ):
+    def acceptMove( self, move ):
         # This is where we move current board up the graph to other player's move
 # Not sure if we should push the move or just set the board...
-        print board
-        self.current_board = board
+        print move
+        self.current_board.push(move)
         return
          
     
