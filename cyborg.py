@@ -25,8 +25,8 @@ def dummyPointAllocator( edgeInfo, my_move, points ):
         return [(points, edgeInfo[0][2])]
     sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=not(my_move))
     investments = [(math.ceil(points/2.0),sorted_edgeInfo[0][2])]
-    investments += [(math.ceil(points/4.0),sorted_edgeInfo[1][2])]
-    investments += [(math.ceil(points/4.0),sorted_edgeInfo[2][2])]
+#    investments += [(math.floor(points/4.0),sorted_edgeInfo[1][2])]
+#    investments += [(math.floor(points/4.0),sorted_edgeInfo[2][2])]
     return investments
 
 
@@ -41,24 +41,24 @@ def makeMoves( node ):
 # values for the node.  Made to be called recursively starting at the root
 # probScorer is a function with input list of (scores, confidences, child) and my_move,
 #           returning list of (probabilities, scores, child) for use in updating edges
-def scoreChild(cyborg, board, probScorer):
-    my_move = (board.turn == cyborg.color)
-    children = cyborg.g.successors(board)
+def scoreChild(cyborg, board_fen, probScorer, my_move):
+    children = cyborg.g.successors(board_fen)
     if (len(children) == 0):
-        return (cyborg.g.node[board]['score'], cyborg.g.node[board]['conf'], board)
-    child_results = map(lambda x: scoreChild(cyborg, x, probScorer), children)
+        return (cyborg.g.node[board_fen]['score'], cyborg.g.node[board_fen]['conf'], board_fen)
+    # Turns alternate as you go up the tree 
+    child_results = map(lambda x: scoreChild(cyborg, x, probScorer, not(my_move)), children)
     # Calculate probabilities based on scores and confidences and assign to edges
     probScoreChildList = probScorer(child_results, my_move)
     # Annotate edges with probability
-    cyborg.annotateEdges(board, probScoreChildList)
+    cyborg.annotateEdges(board_fen, probScoreChildList)
     # Calculate this board's score using child scores and probabilities
     my_score = sum(map(lambda (p,s,c):p*s, probScoreChildList))
     # Sum confidences for children
     my_conf = sum(map(lambda (s, c, b):c, child_results))
     # Return score and confidence
-    cyborg.g.node[board]['score'] = my_score
-    cyborg.g.node[board]['conf'] = my_conf
-    return (my_score, my_conf, board)
+    cyborg.g.node[board_fen]['score'] = my_score
+    cyborg.g.node[board_fen]['conf'] = my_conf
+    return (my_score, my_conf, board_fen)
 
 
 
@@ -77,13 +77,14 @@ def expandGraph( cyborg, points, board, pointAllocator ):
 #  NOT including probability since in current model it won't be avaiilable for edges built on the fly
     paInput = []
     my_move = board.turn == cyborg.color
-    for (b,nb) in nextMoves:
-        paInput += [(cyborg.g.node[nb]['score'], cyborg.g.node[nb]['conf'],nb)]
-    # Get back list of (points to invest, board)
+    for (thisBoard_fen,nextBoard_fen,move) in nextMoves:
+        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
+        paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
+    # Get back list of (points to invest, board as fen)
     investmentList = cyborg.pointAllocator( paInput, my_move, points )
     # Call expandGraph for calculated number of points on the board from each move
-    for (movePoints, board) in investmentList:
-        expandGraph( cyborg, movePoints, board, pointAllocator)
+    for (movePoints, board_fen) in investmentList:
+        expandGraph( cyborg, movePoints, chess.Board(board_fen), pointAllocator)
 
 class cyborg:
     def __init__(self, board=chess.Board(), color=chess.WHITE, boardScorer=dummyBoardScorer, probScorer=dummyProbScorer, pointAllocator=dummyPointAllocator):
@@ -98,14 +99,18 @@ class cyborg:
 
 
     def addNode(self, (parentBoard, newBoard, c, s, m)):
-        self.g.add_node(newBoard, conf=c, score=s)
-#        print "added\n", newBoard, "  data ", self.g.node[newBoard]
+        self.g.add_node(newBoard.fen(), conf=c, score=s)
+        print "added\n", newBoard.fen(), "  data ", self.g.node[newBoard.fen()]
         if (m != None):
-            self.g.add_edge(parentBoard, newBoard, move=m)
+            print 'new edge \n', parentBoard.fen(), "\n", newBoard.fen(), m
+            self.g.add_edge(parentBoard.fen(), newBoard.fen(), move=m)
         return
 
-    def getMoveEdges(self, board):
-        return self.g.out_edges(board)
+    def getMoveEdges(self, board = None ):
+        if (board == None):
+            board = c.current_board
+        return self.g.out_edges(board.fen(), data=True)
+
 
     def expandNode(self, board):
         moves = makeMoves( board )
@@ -121,7 +126,7 @@ class cyborg:
     def Score(self):
         # I had to make scoreChild an external function because I couldn't figure out
         # how to do recursion using methods :(
-        scoreChild(self, self.current_board, self.probScorer)
+        scoreChild(self, self.current_board.fen(), self.probScorer, self.current_board.turn == self.color)
         return
 
     def Build(self, points):
@@ -142,7 +147,7 @@ class cyborg:
             board = self.current_board
         edges = self.getMoveEdges( board )
         moves = []
-        for (cb,nb) in edges:
+        for (cb,nb,data) in edges:
             moves += [(self.g.edge[cb][nb]['move'], self.g.node[nb]['score'])]
         return moves
 
@@ -152,10 +157,10 @@ class cyborg:
             board = self.current_board 
         scoredMoves = self.getScoredMoves( board )
         bestMove = max(scoredMoves,key=itemgetter(1))
-        return bestMoves
+        return bestMove
 
     # Designed to be the right function for 'game' to call
-    def chooseMove( self, board ):
+    def chooseMove( self, board = None ):
 # Need some smarts here that I can't figure out right now
         self.Build( 5 )
         self.Build( 5 )
@@ -171,7 +176,11 @@ class cyborg:
         self.current_board.push(move)
         return
          
-    
+    def printEdges( self, board = None ):
+        edges = self.getMoveEdges( board )
+        for e in edges:
+            print "from ", e[0], " - to - ", e[1], " via ", e[2]['move']
+        return
         
         
             
