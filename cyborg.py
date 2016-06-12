@@ -8,7 +8,6 @@ def dummyBoardScorer( b, c ):
     return 0.5
 
 def dummyProbScorer( results, my_move ):
-    print 'ProbScore inputs\n', results
     sorted(results, key=lambda x:x[0], reverse=not(my_move)) # Biggest first for me, lowest for them
     probs = [0]*len(results)
     probs[0]=0.75
@@ -21,7 +20,6 @@ def dummyProbScorer( results, my_move ):
 # Takes list of (score, confidence, board), my_move, and points to invest
 # Returns list of (points, board) for investments
 def dummyPointAllocator( edgeInfo, my_move, points ):
-    print 'PointAllocator inputs\n', edgeInfo, my_move, points
     if len(edgeInfo) == 0:
         return []
     if len(edgeInfo) < 3:
@@ -119,7 +117,6 @@ class cyborg:
 
     def expandNode(self, board):
         # Set confidence to 1 since we're spending a point
-        self.g.node[board.fen()]['conf']=1
         moves = makeMoves( board )
         nodeInfo = []
         for m in moves:
@@ -128,6 +125,7 @@ class cyborg:
             board.pop()
             nodeInfo += [(board, newBoard, 0, self.boardScorer(newBoard, self.color), m)] # Confidence of new board is 1
         map(self.addNode, nodeInfo)
+        self.g.node[board.fen()]['conf']=1
         return
 
     def Score(self):
