@@ -1,5 +1,6 @@
 import chess
 import random
+import datetime
 
 def makeMoves( node ):
     moves = []
@@ -240,32 +241,40 @@ class game:
         self.black = black
         self.black_apply = black_apply
         self.verbose = verbose
+#        self.pgn_game = chess.pgn.Game()
+#        self.pgn_game.headers['White'] = white
+#        self.pgn_game.headers['Black'] = black
+#        self.pgn_game.headers['Date'] = datetime.date
+ #       self.pgn_handle = open( 'gamelog-' + str(datetime.date.today()), 'w')
 
     def debug( self, note ):
         if (self.verbose):
             print( note )
-            print( self.board )        
+            print( self.board ) 
+
+    def apply_move( self, move ):
+#  Add PGN logging when you have a chance
+#        self.pgn_game.
+        if (self.black_apply != None):
+            self.black_apply(move)
+        if (self.white_apply != None):
+            self.white_apply(move)
+        
 
     def turn( self ):
         exec('w_move = ' + self.white + '(self.board)')
-        print 'White ', w_move
         self.board.push(w_move)
-        if (self.black_apply != None):
-            self.black_apply(w_move)
-        if (self.white_apply != None):
-            self.white_apply(w_move)
+        self.apply_move(w_move)
         self.debug('White moves: ' + str(w_move) )
         if (self.board.is_game_over()):
             return self.board.result()
         exec('b_move = ' + self.black + '(self.board)')
         print(b_move)
-        self.board.push(b_move);
-        if (self.black_apply != None):
-            self.black_apply(b_move)
-        if (self.white_apply != None):
-            self.white_apply(b_move)
+        self.board.push(b_move)
+        self.apply_move(b_move)
         self.debug('Black moves: ' + str(b_move) )
         if (self.board.is_game_over()):
+            
             return self.board.result()
 
     def play( self, pause = True ):
