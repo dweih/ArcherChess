@@ -8,10 +8,12 @@ def dummyBoardScorer( b, c ):
     return 0.5
 
 def dummyProbScorer( results, my_move ):
+    print 'ProbScore inputs\n', results
     sorted(results, key=lambda x:x[0], reverse=not(my_move)) # Biggest first for me, lowest for them
     probs = [0]*len(results)
     probs[0]=0.75
-    probs[1]=0.25
+    if (len(results)> 1):
+        probs[1]=0.25 
     children = zip(*results)[2]
     scores = zip(*results)[0]
     return zip(probs, scores, children)
@@ -19,6 +21,7 @@ def dummyProbScorer( results, my_move ):
 # Takes list of (score, confidence, board), my_move, and points to invest
 # Returns list of (points, board) for investments
 def dummyPointAllocator( edgeInfo, my_move, points ):
+    print 'PointAllocator inputs\n', edgeInfo, my_move, points
     if len(edgeInfo) == 0:
         return []
     if len(edgeInfo) < 3:
@@ -87,7 +90,8 @@ def expandGraph( cyborg, points, board, pointAllocator ):
         expandGraph( cyborg, movePoints, chess.Board(board_fen), pointAllocator)
 
 class cyborg:
-    def __init__(self, board=chess.Board(), color=chess.WHITE, boardScorer=dummyBoardScorer, probScorer=dummyProbScorer, pointAllocator=dummyPointAllocator):
+    def __init__(self, board=chess.Board(), color=chess.WHITE, boardScorer=dummyBoardScorer,
+                 probScorer=dummyProbScorer, pointAllocator=dummyPointAllocator, pointsPerMove = 40):
         self.g = nx.DiGraph()
         self.current_board = board
         self.color = color
@@ -95,6 +99,7 @@ class cyborg:
         self.probScorer = probScorer
         self.pointAllocator = pointAllocator
         self.addNode( (self.current_board, board, 1, 0, None) )
+        self.pointsPerMove = pointsPerMove
         return
 
 
@@ -162,10 +167,11 @@ class cyborg:
     # Designed to be the right function for 'game' to call
     def chooseMove( self, board = None ):
 # Need some smarts here that I can't figure out right now
-        self.Build( 20 )
-        self.Build( 20 )
+        self.Build( math.ceil(self.pointsPerMove/4))
+        self.Build( math.ceil(self.pointsPerMove/4))
+        self.Build( math.ceil(self.pointsPerMove/4))
+        self.Build( math.ceil(self.pointsPerMove/4))
         m = self.getNextMove()
-        print m
         return self.getNextMove()
 
 
