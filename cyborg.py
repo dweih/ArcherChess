@@ -118,13 +118,15 @@ class cyborg:
 
 
     def expandNode(self, board):
+        # Set confidence to 1 since we're spending a point
+        self.g.node[board.fen()]['conf']=1
         moves = makeMoves( board )
         nodeInfo = []
         for m in moves:
             board.push(m)
             newBoard = board.copy()
             board.pop()
-            nodeInfo += [(board, newBoard, 1, self.boardScorer(newBoard, self.color), m)] # Confidence of new board is 1
+            nodeInfo += [(board, newBoard, 0, self.boardScorer(newBoard, self.color), m)] # Confidence of new board is 1
         map(self.addNode, nodeInfo)
         return
 
