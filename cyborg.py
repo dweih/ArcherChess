@@ -25,8 +25,8 @@ def dummyPointAllocator( edgeInfo, my_move, points ):
         return [(points, edgeInfo[0][2])]
     sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=not(my_move))
     investments = [(math.ceil(points/2.0),sorted_edgeInfo[0][2])]
-#    investments += [(math.floor(points/4.0),sorted_edgeInfo[1][2])]
-#    investments += [(math.floor(points/4.0),sorted_edgeInfo[2][2])]
+    investments += [(math.floor(points/4.0),sorted_edgeInfo[1][2])]
+    investments += [(math.floor(points/4.0),sorted_edgeInfo[2][2])]
     return investments
 
 
@@ -78,7 +78,7 @@ def expandGraph( cyborg, points, board, pointAllocator ):
     paInput = []
     my_move = board.turn == cyborg.color
     for (thisBoard_fen,nextBoard_fen,move) in nextMoves:
-        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
+#        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
         paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
     # Get back list of (points to invest, board as fen)
     investmentList = cyborg.pointAllocator( paInput, my_move, points )
@@ -100,9 +100,9 @@ class cyborg:
 
     def addNode(self, (parentBoard, newBoard, c, s, m)):
         self.g.add_node(newBoard.fen(), conf=c, score=s)
-        print "added\n", newBoard.fen(), "  data ", self.g.node[newBoard.fen()]
+#        print "added\n", newBoard.fen(), "  data ", self.g.node[newBoard.fen()]
         if (m != None):
-            print 'new edge \n', parentBoard.fen(), "\n", newBoard.fen(), m
+#            print 'new edge \n', parentBoard.fen(), "\n", newBoard.fen(), m
             self.g.add_edge(parentBoard.fen(), newBoard.fen(), move=m)
         return
 
@@ -157,13 +157,13 @@ class cyborg:
             board = self.current_board 
         scoredMoves = self.getScoredMoves( board )
         bestMove = max(scoredMoves,key=itemgetter(1))
-        return bestMove
+        return bestMove[0]
 
     # Designed to be the right function for 'game' to call
     def chooseMove( self, board = None ):
 # Need some smarts here that I can't figure out right now
-        self.Build( 5 )
-        self.Build( 5 )
+        self.Build( 20 )
+        self.Build( 20 )
         m = self.getNextMove()
         print m
         return self.getNextMove()
@@ -172,7 +172,7 @@ class cyborg:
     def acceptMove( self, move ):
         # This is where we move current board up the graph to other player's move
 # Not sure if we should push the move or just set the board...
-        print move
+#        print move
         self.current_board.push(move)
         return
          

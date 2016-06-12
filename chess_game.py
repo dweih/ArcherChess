@@ -232,10 +232,13 @@ def human( node ):
 
 
 class game:
-    def __init__( self, white = 'human', black = 'rando', verbose = True ):
+    def __init__( self, white = 'human', black = 'rando', white_apply = None,
+                  black_apply = None, verbose = True ):
         self.board = chess.Board()
         self.white = white
+        self.white_apply = white_apply
         self.black = black
+        self.black_apply = black_apply
         self.verbose = verbose
 
     def debug( self, note ):
@@ -245,14 +248,22 @@ class game:
 
     def turn( self ):
         exec('w_move = ' + self.white + '(self.board)')
-#        print(w_move)
+        print 'White ', w_move
         self.board.push(w_move)
+        if (self.black_apply != None):
+            self.black_apply(w_move)
+        if (self.white_apply != None):
+            self.white_apply(w_move)
         self.debug('White moves: ' + str(w_move) )
         if (self.board.is_game_over()):
             return self.board.result()
         exec('b_move = ' + self.black + '(self.board)')
-#        print(b_move)
+        print(b_move)
         self.board.push(b_move);
+        if (self.black_apply != None):
+            self.black_apply(b_move)
+        if (self.white_apply != None):
+            self.white_apply(b_move)
         self.debug('Black moves: ' + str(b_move) )
         if (self.board.is_game_over()):
             return self.board.result()
