@@ -53,7 +53,8 @@ def scoreChild(cyborg, board_fen, probScorer, my_move):
     # Annotate edges with probability
     cyborg.annotateEdges(board_fen, probScoreChildList)
     # Calculate this board's score using child scores and probabilities
-    my_score = sum(map(lambda (p,s,c):p*s, probScoreChildList))
+    score_polarity = 1 if my_move else -1
+    my_score = sum(map(lambda (p,s,c):p*s*score_polarity, probScoreChildList))
     # Sum confidences for children
     my_conf = sum(map(lambda (s, c, b):c, child_results))
     # Return score and confidence
@@ -77,7 +78,7 @@ def expandGraph( cyborg, points, board, pointAllocator ):
     # Collect info for pointAllocator - list of (score, confidence, board)
 #  NOT including probability since in current model it won't be avaiilable for edges built on the fly
     paInput = []
-    my_move = board.turn == cyborg.color
+    my_move = not(board.turn == cyborg.color)
     for (thisBoard_fen,nextBoard_fen,move) in nextMoves:
 #        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
         paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
@@ -123,7 +124,7 @@ class cyborg:
             board.push(m)
             newBoard = board.copy()
             board.pop()
-            nodeInfo += [(board, newBoard, 0, self.boardScorer(newBoard, self.color), m)] # Confidence of new board is 1
+            nodeInfo += [(board, newBoard, 0, self.boardScorer(newBoard, board.turn), m)] # Confidence of new board is 1
         map(self.addNode, nodeInfo)
         self.g.node[board.fen()]['conf']=1
         return
@@ -137,7 +138,6 @@ class cyborg:
     def Build(self, points):
         expandGraph(self, points, self.current_board, self.pointAllocator)
         self.Score()
-        print 'Built to ', len(self.g.nodes()), ' nodes'
         return
 
     # Takes list of triples of (prob,scores,board)
@@ -171,14 +171,13 @@ class cyborg:
         self.Build( math.ceil(self.pointsPerMove/4))
         self.Build( math.ceil(self.pointsPerMove/4))
         self.Build( math.ceil(self.pointsPerMove/4))
+        print 'Built to ', len(self.g.nodes()), ' nodes'
         m = self.getNextMove()
         return self.getNextMove()
 
 
     def acceptMove( self, move ):
         # This is where we move current board up the graph to other player's move
-# Not sure if we should push the move or just set the board...
-#        print move
         self.current_board.push(move)
         return
          
