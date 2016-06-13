@@ -23,7 +23,7 @@ def scoreSquare( node, sq ):
 def opColor( color ):
     return chess.WHITE if (color == chess.BLACK) else chess.BLACK
 
-def attackScore( board, color, sq_value = 12 ):
+def attackScore( board, color, sq_value = 6 ):
     op_color = opColor( color )
     my_attacks = []
     op_attacks = []
@@ -64,55 +64,6 @@ def dogPile( board, sq, color ):
         combination.pop()
 #    print "C", combination
     return (reduce(lambda x, y: x+y, combination) > 0)
-    
-                    
-                    
-def dogPileTests():
-    wp = chess.Piece(chess.PAWN, chess.WHITE)
-    bp = chess.Piece(chess.PAWN, chess.BLACK)
-    wb = chess.Piece(chess.BISHOP, chess.WHITE)
-    bb = chess.Piece(chess.BISHOP, chess.BLACK)
-    wr = chess.Piece(chess.ROOK, chess.WHITE)
-    br = chess.Piece(chess.ROOK, chess.BLACK)
-    wq = chess.Piece(chess.QUEEN, chess.WHITE)
-    bq = chess.Piece(chess.QUEEN, chess.BLACK)
-    wn = chess.Piece(chess.KNIGHT, chess.WHITE)
-    bn = chess.Piece(chess.KNIGHT, chess.BLACK)
-    wk = chess.Piece(chess.KING, chess.WHITE)
-    e = chess.Board()
-    e.clear()
-    e.set_piece_at(chess.E5, bp)
-    e.set_piece_at(chess.D4, wp)
-    print str(dogPile(e, chess.D4, chess.WHITE)), " should be True"
-    e.set_piece_at(chess.E3, wp)
-    print str(dogPile(e, chess.D4, chess.WHITE)), "Expect False (no fair exchange)"
-    e.clear()
-    e.set_piece_at(chess.C3, bb)
-    e.set_piece_at(chess.E5, bb)
-    e.set_piece_at(chess.G5, wr)
-    e.set_piece_at(chess.E7, wr)
-    print dogPile(e, chess.E5, chess.BLACK), "Expect True"
-    print dogPile(e, chess.A1, chess.WHITE), "Expect no error"
-    e.clear()
-    e.set_piece_at(chess.D3, wq)
-    e.set_piece_at(chess.C4, wp)
-    e.set_piece_at(chess.G5, wr)
-    e.set_piece_at(chess.D5, bp)
-    e.set_piece_at(chess.D7, bb)
-    e.set_piece_at(chess.F7, bq)
-    print e
-    print dogPile(e, chess.D5, chess.BLACK), "Expect True"
-    e.set_piece_at(chess.D7, br)
-    print e
-    print dogPile(e, chess.D5, chess.BLACK), "Expect True - but should be False (blocking piece)"
-    e.clear()
-    e.set_piece_at(chess.D2, bq)
-    e.set_piece_at(chess.D1, wq)
-    e.set_piece_at(chess.C1, wb)
-    e.set_piece_at(chess.E1, wk)
-    e.set_piece_at(chess.B1, wn)
-    print dogPile(e, chess.D2, chess.BLACK), "Expect True"
-
     
     
 def allPieceSquares( node, color ):
@@ -209,12 +160,10 @@ def pigglyv3( node, color ):
     if (node.is_stalemate() and my_mat > op_mat ):
         return -5000
     score = my_mat - op_mat
-    print "material ", score
     my_squares = allPieceSquares(  node, color )
     for sq in my_squares:
         if (dogPile(node, sq, color)):
             score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
-            print "dog pile ", sq
     score += attackScore( node, color )
     return score
 
