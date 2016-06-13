@@ -38,7 +38,7 @@ c = cyborg( boardScorer=pigglyv3, pointsPerMove= 100)#, probScorer = Betterprobs
 g = game(white='c.chooseMove', black='naivePigglyv3', white_apply=c.acceptMove)
 #g = game(black='c.chooseMove', white='naivePigglyv3', black_apply=c.acceptMove)
 
-#g.play(pause = False)
+g.play(pause = False)
 
 def listMoves(c):
     moves = c.getScoredMoves( c.current_board )
