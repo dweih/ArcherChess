@@ -7,24 +7,22 @@ import math
 def dummyBoardScorer( b, c ):
     return 0.5
 
-def dummyProbScorer( results, my_move ):
-    sorted(results, key=lambda x:x[0], reverse=not(my_move)) # Biggest first for me, lowest for them
+def dummyProbScorer( results, color ):
+    results = sorted(results, key=lambda x:x[0], reverse=(color == chess.WHITE)) # Scores are now always high = good
     probs = [0]*len(results)
-    probs[0]=0.75
-    if (len(results)> 1):
-        probs[1]=0.25 
+    probs[0]=1
     children = zip(*results)[2]
     scores = zip(*results)[0]
     return zip(probs, scores, children)
 
-# Takes list of (score, confidence, board), my_move, and points to invest
+# Takes list of (score, confidence, board), color, and points to invest
 # Returns list of (points, board) for investments
-def dummyPointAllocator( edgeInfo, my_move, points ):
+def dummyPointAllocator( edgeInfo, color, points ):
     if len(edgeInfo) == 0:
         return []
     if len(edgeInfo) < 3:
         return [(points, edgeInfo[0][2])]
-    sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=not(my_move))
+    sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=(color == chess.WHITE))
     investments = [(math.ceil(points/2.0),sorted_edgeInfo[0][2])]
     investments += [(math.floor(points/4.0),sorted_edgeInfo[1][2])]
     investments += [(math.floor(points/4.0),sorted_edgeInfo[2][2])]
@@ -40,21 +38,21 @@ def makeMoves( node ):
 
 # Returns (score, confidence, child) for each child, combines them to set
 # values for the node.  Made to be called recursively starting at the root
-# probScorer is a function with input list of (scores, confidences, child) and my_move,
+# probScorer is a function with input list of (scores, confidences, child) and color of person to move,
 #           returning list of (probabilities, scores, child) for use in updating edges
-def scoreChild(cyborg, board_fen, probScorer, my_move):
+# my_move means this board is being evaluated as a possiblity after I have moved (other after opponent)
+def scoreChild(cyborg, board_fen, probScorer, color):
     children = cyborg.g.successors(board_fen)
     if (len(children) == 0):
         return (cyborg.g.node[board_fen]['score'], cyborg.g.node[board_fen]['conf'], board_fen)
-    # Turns alternate as you go up the tree 
-    child_results = map(lambda x: scoreChild(cyborg, x, probScorer, not(my_move)), children)
+    # Turns alternate as you go up the tree
+    child_results = map(lambda x: scoreChild(cyborg, x, probScorer, opColor(color)), children)
     # Calculate probabilities based on scores and confidences and assign to edges
-    probScoreChildList = probScorer(child_results, my_move)
+    probScoreChildList = probScorer(child_results, color)
     # Annotate edges with probability
     cyborg.annotateEdges(board_fen, probScoreChildList)
     # Calculate this board's score using child scores and probabilities
-    score_polarity = 1 if my_move else -1
-    my_score = sum(map(lambda (p,s,c):p*s*score_polarity, probScoreChildList))
+    my_score = sum(map(lambda (p,s,c):p*s, probScoreChildList))
     # Sum confidences for children
     my_conf = sum(map(lambda (s, c, b):c, child_results))
     # Return score and confidence
@@ -83,10 +81,18 @@ def expandGraph( cyborg, points, board, pointAllocator ):
 #        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
         paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
     # Get back list of (points to invest, board as fen)
-    investmentList = cyborg.pointAllocator( paInput, my_move, points )
+    investmentList = cyborg.pointAllocator( paInput, board.turn, points )
     # Call expandGraph for calculated number of points on the board from each move
     for (movePoints, board_fen) in investmentList:
         expandGraph( cyborg, movePoints, chess.Board(board_fen), pointAllocator)
+
+def printChildren( c, board, prefix ):
+    edges = c.getMoveEdges( board )
+    for e in edges:
+         print prefix, "Move: ", e[2]['move'], " prob ", e[2]['prob'], " score ", c.g.node[e[1]]['score']
+         printChildren( c, chess.Board(e[1]), prefix + "  ")
+    return
+
 
 class cyborg:
     def __init__(self, board=chess.Board(), color=chess.WHITE, boardScorer=dummyBoardScorer,
@@ -120,11 +126,13 @@ class cyborg:
         # Set confidence to 1 since we're spending a point
         moves = makeMoves( board )
         nodeInfo = []
+        # Penalty for not your move (symmetrical)
+        move_polarity = 1 if (board.turn == chess.WHITE) else -1
         for m in moves:
             board.push(m)
             newBoard = board.copy()
             board.pop()
-            nodeInfo += [(board, newBoard, 0, self.boardScorer(newBoard, board.turn), m)] # Confidence of new board is 1
+            nodeInfo += [(board, newBoard, 0, move_polarity * (self.boardScorer(newBoard, board.turn) - 15), m)] # Confidence of new board is 1
         map(self.addNode, nodeInfo)
         self.g.node[board.fen()]['conf']=1
         return
@@ -161,7 +169,10 @@ class cyborg:
         if (board == None):
             board = self.current_board 
         scoredMoves = self.getScoredMoves( board )
-        bestMove = max(scoredMoves,key=itemgetter(1))
+        if (self.color == chess.WHITE):
+            bestMove = max(scoredMoves,key=itemgetter(1))
+        else:
+            bestMove = min(scoredMoves,key=itemgetter(1))
         return bestMove[0]
 
     # Designed to be the right function for 'game' to call
@@ -175,16 +186,14 @@ class cyborg:
         m = self.getNextMove()
         return self.getNextMove()
 
-
     def acceptMove( self, move ):
         # This is where we move current board up the graph to other player's move
         self.current_board.push(move)
         return
-         
-    def printEdges( self, board = None ):
-        edges = self.getMoveEdges( board )
-        for e in edges:
-            print "from ", e[0], " - to - ", e[1], " via ", e[2]['move']
+
+    def printGraph( self, board = None ):
+        board = board if (board != None) else self.current_board
+        printChildren( self, board, "")
         return
         
         
