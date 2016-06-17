@@ -7,8 +7,10 @@ import math
 def dummyBoardScorer( b, c ):
     return 0.5
 
-def dummyProbScorer( results, color ):
-    results = sorted(results, key=lambda x:x[0], reverse=(color == chess.WHITE)) # Scores are now always high = good
+
+
+def dummyProbScorer( results, color, my_color ):
+    results = sorted(results, key=lambda x:x[0], reverse=((color == chess.WHITE)^(color != my_color))) # Scores are now always high = good
     probs = [0]*len(results)
     probs[0]=1
     children = zip(*results)[2]
@@ -17,12 +19,12 @@ def dummyProbScorer( results, color ):
 
 # Takes list of (score, confidence, board), color, and points to invest
 # Returns list of (points, board) for investments
-def dummyPointAllocator( edgeInfo, color, points ):
+def dummyPointAllocator( edgeInfo, color, my_color, points ):
     if len(edgeInfo) == 0:
         return []
     if len(edgeInfo) < 3:
         return [(points, edgeInfo[0][2])]
-    sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=(color == chess.WHITE))
+    sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=((color == chess.WHITE)^(color != my_color)))
     investments = [(math.ceil(points/2.0),sorted_edgeInfo[0][2])]
     investments += [(math.floor(points/4.0),sorted_edgeInfo[1][2])]
     investments += [(math.floor(points/4.0),sorted_edgeInfo[2][2])]
@@ -48,7 +50,7 @@ def scoreChild(cyborg, board_fen, probScorer, color):
     # Turns alternate as you go up the tree
     child_results = map(lambda x: scoreChild(cyborg, x, probScorer, opColor(color)), children)
     # Calculate probabilities based on scores and confidences and assign to edges
-    probScoreChildList = probScorer(child_results, color)
+    probScoreChildList = probScorer(child_results, color, cyborg.color)
     # Annotate edges with probability
     cyborg.annotateEdges(board_fen, probScoreChildList)
     # Calculate this board's score using child scores and probabilities
@@ -81,16 +83,18 @@ def expandGraph( cyborg, points, board, pointAllocator ):
 #        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
         paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
     # Get back list of (points to invest, board as fen)
-    investmentList = cyborg.pointAllocator( paInput, board.turn, points )
+    investmentList = cyborg.pointAllocator( paInput, board.turn, cyborg.color, points )
     # Call expandGraph for calculated number of points on the board from each move
     for (movePoints, board_fen) in investmentList:
         expandGraph( cyborg, movePoints, chess.Board(board_fen), pointAllocator)
 
-def printChildren( c, board, prefix ):
-    edges = c.getMoveEdges( board )
-    for e in edges:
-         print prefix, "Move: ", e[2]['move'], " prob ", e[2]['prob'], " score ", c.g.node[e[1]]['score']
-         printChildren( c, chess.Board(e[1]), prefix + "  ")
+def printChildren( c, board, prefix, depth, line ):
+    if depth > 0:
+        edges = c.getMoveEdges( board )
+        for e in edges:
+            if (not(line) or e[2]['prob'] > 0.75):
+                print prefix, "Move: ", e[2]['move'], " prob ", e[2]['prob'], " score ", c.g.node[e[1]]['score']
+                printChildren( c, chess.Board(e[1]), prefix + "  ", depth-1, line)
     return
 
 
@@ -169,6 +173,7 @@ class cyborg:
         if (board == None):
             board = self.current_board 
         scoredMoves = self.getScoredMoves( board )
+#        print scoredMoves
         if (self.color == chess.WHITE):
             bestMove = max(scoredMoves,key=itemgetter(1))
         else:
@@ -183,7 +188,6 @@ class cyborg:
         self.Build( math.ceil(self.pointsPerMove/4))
         self.Build( math.ceil(self.pointsPerMove/4))
         print 'Built to ', len(self.g.nodes()), ' nodes'
-        m = self.getNextMove()
         return self.getNextMove()
 
     def acceptMove( self, move ):
@@ -191,9 +195,9 @@ class cyborg:
         self.current_board.push(move)
         return
 
-    def printGraph( self, board = None ):
+    def printGraph( self, board = None, depth=3, line=False ):
         board = board if (board != None) else self.current_board
-        printChildren( self, board, "")
+        printChildren( self, board, "", depth, line)
         return
         
         
