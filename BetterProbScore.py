@@ -7,11 +7,7 @@ def probconverter ( edge ):
     edgescore = itemgetter(0)
     edgeconfidence = itemgetter(1)
     justtheboard = itemgetter(2)
-    if edgescore(edge)<-300:
-        return 2
-    else:
-        return ((edgescore(edge)+300)/25)+ log(edgeconfidence(edge))
-
+    return (edgescore(edge)/10)
 
 # Takes [(score, confidence, board)], my_move(the boolean variable expressing whose turn it is)
 # Returns list of tuples [(probability, board)] for scoring
