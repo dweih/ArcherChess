@@ -19,12 +19,12 @@ def dummyProbScorer( results, color, my_color ):
 
 # Takes list of (score, confidence, board), color, and points to invest
 # Returns list of (points, board) for investments
-def dummyPointAllocator( edgeInfo, color, my_color, points ):
+def dummyPointAllocator( edgeInfo, color, points ):
     if len(edgeInfo) == 0:
         return []
     if len(edgeInfo) < 3:
         return [(points, edgeInfo[0][2])]
-    sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=((color == chess.WHITE)^(color != my_color)))
+    sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=(color == chess.WHITE))
     investments = [(math.ceil(points/2.0),sorted_edgeInfo[0][2])]
     investments += [(math.floor(points/4.0),sorted_edgeInfo[1][2])]
     investments += [(math.floor(points/4.0),sorted_edgeInfo[2][2])]
@@ -83,7 +83,7 @@ def expandGraph( cyborg, points, board, pointAllocator ):
 #        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
         paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
     # Get back list of (points to invest, board as fen)
-    investmentList = cyborg.pointAllocator( paInput, board.turn, cyborg.color, points )
+    investmentList = cyborg.pointAllocator( paInput, board.turn, points )
     # Call expandGraph for calculated number of points on the board from each move
     for (movePoints, board_fen) in investmentList:
         expandGraph( cyborg, movePoints, chess.Board(board_fen), pointAllocator)
