@@ -10,7 +10,7 @@ def dummyBoardScorer( b, c ):
 
 
 def dummyProbScorer( results, color, my_color ):
-    results = sorted(results, key=lambda x:x[0], reverse=((color == chess.WHITE)^(color != my_color))) # Scores are now always high = good
+    results = sorted(results, key=lambda x:x[0], reverse=((color == chess.WHITE)^(my_color != chess.WHITE))) # Scores are now always high = good
     probs = [0]*len(results)
     probs[0]=1
     children = zip(*results)[2]
@@ -54,11 +54,17 @@ def scoreChild(cyborg, board_fen, probScorer, color):
     # Annotate edges with probability
     cyborg.annotateEdges(board_fen, probScoreChildList)
     # Calculate this board's score using child scores and probabilities
-    my_score = sum(map(lambda (p,s,c):p*s, probScoreChildList))
+#    print "ScoreChild map ", probScoreChildList[0]
+    #my_score = sum(map(lambda (p,s,c):p*s, probScoreChildList))
+    my_score = 0
+    for (p,s,c) in probScoreChildList:
+#        print "p * s ", p, " * ", s, " = ", p*s
+        my_score += p*s
     # Sum confidences for children
     my_conf = sum(map(lambda (s, c, b):c, child_results))
-    # Return score and confidence
+    # Return score and confidenc
     cyborg.g.node[board_fen]['score'] = my_score
+#    print "my score ", cyborg.g.node[board_fen]['score']
     cyborg.g.node[board_fen]['conf'] = my_conf
     return (my_score, my_conf, board_fen)
 
@@ -92,8 +98,11 @@ def printChildren( c, board, prefix, depth, line ):
     if depth > 0:
         edges = c.getMoveEdges( board )
         for e in edges:
-            if (not(line) or e[2]['prob'] > 0.75):
-                print prefix, "Move: ", e[2]['move'], " prob ", e[2]['prob'], " score ", c.g.node[e[1]]['score']
+            if (not(line) or e[2]['prob'] > 0 ):#or c.g.node[e[1]]['conf']==1):
+                print prefix, "Move: ", e[2]['move'], " prob ", e[2]['prob'], " score ", c.g.node[e[1]]['score'], " conf ", c.g.node[e[1]]['conf']
+                if (line):
+                    c.current_board.push(e[2]['move'])
+                    print c.current_board
                 printChildren( c, chess.Board(e[1]), prefix + "  ", depth-1, line)
     return
 
@@ -136,9 +145,9 @@ class cyborg:
             board.push(m)
             newBoard = board.copy()
             board.pop()
-            nodeInfo += [(board, newBoard, 0, move_polarity * (self.boardScorer(newBoard, board.turn) - 15), m)] # Confidence of new board is 1
+            nodeInfo += [(board, newBoard, 1, move_polarity * (self.boardScorer(newBoard, board.turn) - 15), m)] # Confidence of new board is 1
         map(self.addNode, nodeInfo)
-        self.g.node[board.fen()]['conf']=1
+#        self.g.node[board.fen()]['conf']=1
         return
 
     def Score(self):
@@ -197,7 +206,9 @@ class cyborg:
 
     def printGraph( self, board = None, depth=3, line=False ):
         board = board if (board != None) else self.current_board
+        temp = self.current_board.copy()
         printChildren( self, board, "", depth, line)
+        self.current_board = temp
         return
         
         
