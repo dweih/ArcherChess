@@ -3,23 +3,7 @@ import chess.pgn
 import os
 import sys
 
-os.chdir("c:\\users\\dweih\\notebook\\chess")
-
-def attackScore( board ):
-    bl_attacks = []
-    wh_attacks = []
-    net_points = []
-    for sq in chess.SQUARES: # or use an array?  Right now I'm assuming sq comes in numerical order
-        #for attacking_sq in board.attacking_squares(chess.WHITE, sq):
-        bl_attacks = bl_attacks + [len(board.attackers(chess.WHITE, sq))]
-        wh_attacks = wh_attacks + [len(board.attackers(chess.BLACK, sq))]
-        delta_attacks = map(lambda x,y:x-y, wh_attacks, bl_attacks)
-        #net = 
-    return (wh_attacks, bl_attacks, delta_attacks)
-        
-                                 
-            
-
+os.chdir("c:\\users\\dweih\\chess")
 
 class parser():
     def __init__( self, pgn_path = 'c:\\users\\dweih\\notebook\\chess\\twogames.pgn' , out_path = 'out.txt' ):
