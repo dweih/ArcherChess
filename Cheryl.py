@@ -1,10 +1,10 @@
 import re
 
-def Cheryl ( board ):
-    FENstring = board.FEN
+def Cheryl ( board, color ):
+    FENstring = board.fen()
     # early out if it's checkmate
-    if (node.is_checkmate()):
-        return 10000
+    #if (board.is_checkmate()):
+     #   return 10000
     return CherylEndgameScore(FENchanger(FENstring))
 
 
@@ -85,7 +85,7 @@ def CherylEndgameScore( ModiFENstring ):
         if k.start() == 6:
             Endgame += -50
     
-    print Endgame
+    return Endgame
         
 #def KriegerPiece
 #if (piece == chess.PAWN ) : return (100, 120, 1)
