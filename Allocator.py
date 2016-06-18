@@ -1,6 +1,9 @@
 
 # Takes the scores of the boards and assigns them a pre-normalization amount of points to receive
-def scoreconverter ( edge )
+def scoreconverter ( edge ):
+    edgescore = itemgetter(0)
+    edgeconfidence = itemgetter(1)
+    justtheboard = itemgetter(2)
     if edgescore(edge)<-300:
         return 2
     else:
@@ -15,11 +18,12 @@ def dummyPointAllocator( edgeInfo, my_move, points ):
         return []
 # Sorts the edges from worst to best, reverses if it is your move
     sorted_edgeInfo = sorted(edgeInfo, key=itemgetter(0), reverse=not(my_move))
-#This is a little thing for pulling the score off a board
+#This is a little thing for pulling one piece out of edgeInfo
     edgescore = itemgetter(0)
+    edgeconfidence = itemgetter (1)
     justtheboard = itemgetter(2)
 # Early out if we have less than 30 points to assign
-    if points < 30:
+    if points < 20:
         return [ (
     else:
 # Instruction for actual assignment of points
@@ -33,7 +37,6 @@ def dummyPointAllocator( edgeInfo, my_move, points ):
         actualscores = [floor(normscore*points) for normscore in normalizedscores]
 # Hand any leftovers to the top choice
         leftovers = points - sum(actualscores)
-# Seems like a big problem but this is what I want to do!
-        actualscores[0] = actualscores[0] + leftovers
+        actualscores[0] += leftovers
 # Return tuples in one giant list comprehension
         return [ (actscore for actscore in actualscores) (justtheboard(edge) for edge in edgeInfo) ]
