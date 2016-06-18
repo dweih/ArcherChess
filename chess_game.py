@@ -132,9 +132,9 @@ def pigglyv2( node, color ):
         return -5000
     my_squares = allPieceSquares(  node, color )
     score = my_mat - op_mat
-    for sq in my_squares:
-        if (dogPile(node, sq, color)):
-            score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
+#    for sq in my_squares:
+#        if (dogPile(node, sq, color)):
+#            score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
     return score
 
 
