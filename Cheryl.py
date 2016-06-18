@@ -1,6 +1,7 @@
 import re
 
-def Cheryl ( FENstring, board ):
+def Cheryl ( board ):
+    FENstring = board.FEN
     # early out if it's checkmate
     if (node.is_checkmate()):
         return 10000
