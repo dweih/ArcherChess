@@ -54,17 +54,14 @@ def scoreChild(cyborg, board_fen, probScorer, color):
     # Annotate edges with probability
     cyborg.annotateEdges(board_fen, probScoreChildList)
     # Calculate this board's score using child scores and probabilities
-#    print "ScoreChild map ", probScoreChildList[0]
     #my_score = sum(map(lambda (p,s,c):p*s, probScoreChildList))
     my_score = 0
     for (p,s,c) in probScoreChildList:
-#        print "p * s ", p, " * ", s, " = ", p*s
         my_score += p*s
     # Sum confidences for children
     my_conf = sum(map(lambda (s, c, b):c, child_results))
     # Return score and confidenc
     cyborg.g.node[board_fen]['score'] = my_score
-#    print "my score ", cyborg.g.node[board_fen]['score']
     cyborg.g.node[board_fen]['conf'] = my_conf
     return (my_score, my_conf, board_fen)
 
@@ -86,7 +83,6 @@ def expandGraph( cyborg, points, board, pointAllocator ):
     paInput = []
     my_move = not(board.turn == cyborg.color)
     for (thisBoard_fen,nextBoard_fen,move) in nextMoves:
-#        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
         paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
     # Get back list of (points to invest, board as fen)
     investmentList = cyborg.pointAllocator( paInput, board.turn, points )
@@ -123,9 +119,7 @@ class cyborg:
 
     def addNode(self, (parentBoard, newBoard, c, s, m)):
         self.g.add_node(newBoard.fen(), conf=c, score=s)
-#        print "added\n", newBoard.fen(), "  data ", self.g.node[newBoard.fen()]
         if (m != None):
-#            print 'new edge \n', parentBoard.fen(), "\n", newBoard.fen(), m
             self.g.add_edge(parentBoard.fen(), newBoard.fen(), move=m)
         return
 
@@ -140,12 +134,12 @@ class cyborg:
         moves = makeMoves( board )
         nodeInfo = []
         # Penalty for not your move (symmetrical)
-        move_polarity = 1 if (board.turn == chess.WHITE) else -1
+        move_polarity = 1 if (board.turn == self.color) else -1
         for m in moves:
             board.push(m)
             newBoard = board.copy()
             board.pop()
-            nodeInfo += [(board, newBoard, 1, move_polarity * (self.boardScorer(newBoard, board.turn) - 15), m)] # Confidence of new board is 1
+            nodeInfo += [(board, newBoard, 1, self.boardScorer(newBoard, board.turn) - (move_polarity * 15), m)] # Confidence of new board is 1
         map(self.addNode, nodeInfo)
 #        self.g.node[board.fen()]['conf']=1
         return
