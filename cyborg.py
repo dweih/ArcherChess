@@ -103,7 +103,7 @@ class cyborg:
     def __init__(self, boardScorer, board=chess.Board(), color=chess.WHITE, probScorer=dummyProbScorer,
                  pointAllocator=dummyPointAllocator, pointsPerMove = 40):
         self.g = nx.DiGraph()
-        self.current_board = board
+        self.current_board = board.copy()
         self.color = color
         self.boardScorer = boardScorer
         self.probScorer = probScorer
