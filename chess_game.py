@@ -132,9 +132,6 @@ def pigglyv2( node, color ):
         return -5000
     my_squares = allPieceSquares(  node, color )
     score = my_mat - op_mat
-#    for sq in my_squares:
-#        if (dogPile(node, sq, color)):
-#            score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
     return score
 
 
@@ -150,22 +147,43 @@ def piggly( node, color ):
     return my_mat - op_mat
 
 
+# Piggly always scores up = good for this player
 def pigglyv3( node, color ):
     op_color = opColor(color)
+    score_polarity = 1
     my_mat = calculateMaterialScore( node, color )
     op_mat = calculateMaterialScore( node, op_color )
     # early out if it's checkmate
     if (node.is_checkmate()):
-        return 10000
+        return 10000 * score_polarity
     if (node.is_stalemate() and my_mat > op_mat ):
-        return -5000
+        return -5000 * score_polarity
     score = my_mat - op_mat
     my_squares = allPieceSquares(  node, color )
     for sq in my_squares:
         if (dogPile(node, sq, color)):
             score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
     score += attackScore( node, color )
-    return score
+    return score * score_polarity
+
+
+def pigglyv4( node, color ):
+    op_color = opColor(color)
+    score_polarity = 1 if (color == chess.WHITE) else -1
+    my_mat = calculateMaterialScore( node, color )
+    op_mat = calculateMaterialScore( node, op_color )
+    # early out if it's checkmate
+    if (node.is_checkmate()):
+        return 10000 * score_polarity
+    if (node.is_stalemate() and my_mat > op_mat ):
+        return -5000 * score_polarity
+    score = my_mat - op_mat
+    my_squares = allPieceSquares(  node, color )
+    for sq in my_squares:
+        if (dogPile(node, sq, color)):
+            score -= scorePiece( node.piece_at(sq).piece_type )  # Remove 'lost' piece
+    score += attackScore( node, color )
+    return score * score_polarity
 
 
 def rando( node ):
@@ -206,6 +224,7 @@ class game:
     def apply_move( self, move ):
 #  Add PGN logging when you have a chance
 #        self.pgn_game.
+	self.board.push(move)
         if (self.black_apply != None):
             self.black_apply(move)
         if (self.white_apply != None):
@@ -214,18 +233,15 @@ class game:
 
     def turn( self ):
         exec('w_move = ' + self.white + '(self.board)')
-        self.board.push(w_move)
         self.apply_move(w_move)
         self.debug('White moves: ' + str(w_move) )
         if (self.board.is_game_over()):
             return self.board.result()
         exec('b_move = ' + self.black + '(self.board)')
         print(b_move)
-        self.board.push(b_move)
         self.apply_move(b_move)
         self.debug('Black moves: ' + str(b_move) )
-        if (self.board.is_game_over()):
-            
+        if (self.board.is_game_over()):            
             return self.board.result()
 
     def play( self, pause = True ):

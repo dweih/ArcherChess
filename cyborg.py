@@ -3,12 +3,6 @@ import chess
 from operator import itemgetter
 import math
 
-# Dummy functions for testing
-def dummyBoardScorer( b, c ):
-    return 0.5
-
-
-
 def dummyProbScorer( results, color, my_color ):
     results = sorted(results, key=lambda x:x[0], reverse=((color == chess.WHITE)^(my_color != chess.WHITE))) # Scores are now always high = good
     probs = [0]*len(results)
@@ -48,23 +42,22 @@ def scoreChild(cyborg, board_fen, probScorer, color):
     if (len(children) == 0):
         return (cyborg.g.node[board_fen]['score'], cyborg.g.node[board_fen]['conf'], board_fen)
     # Turns alternate as you go up the tree
-    child_results = map(lambda x: scoreChild(cyborg, x, probScorer, opColor(color)), children)
+    child_results = []
+    for child in children:
+        child_results += [scoreChild(cyborg, child, probScorer, opColor(color))]
     # Calculate probabilities based on scores and confidences and assign to edges
     probScoreChildList = probScorer(child_results, color, cyborg.color)
     # Annotate edges with probability
     cyborg.annotateEdges(board_fen, probScoreChildList)
     # Calculate this board's score using child scores and probabilities
-#    print "ScoreChild map ", probScoreChildList[0]
     #my_score = sum(map(lambda (p,s,c):p*s, probScoreChildList))
     my_score = 0
     for (p,s,c) in probScoreChildList:
-#        print "p * s ", p, " * ", s, " = ", p*s
         my_score += p*s
     # Sum confidences for children
     my_conf = sum(map(lambda (s, c, b):c, child_results))
     # Return score and confidenc
     cyborg.g.node[board_fen]['score'] = my_score
-#    print "my score ", cyborg.g.node[board_fen]['score']
     cyborg.g.node[board_fen]['conf'] = my_conf
     return (my_score, my_conf, board_fen)
 
@@ -86,7 +79,6 @@ def expandGraph( cyborg, points, board, pointAllocator ):
     paInput = []
     my_move = not(board.turn == cyborg.color)
     for (thisBoard_fen,nextBoard_fen,move) in nextMoves:
-#        print 'expanding from ', thisBoard_fen, ' to ', nextBoard_fen
         paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
     # Get back list of (points to invest, board as fen)
     investmentList = cyborg.pointAllocator( paInput, board.turn, points )
@@ -108,10 +100,10 @@ def printChildren( c, board, prefix, depth, line ):
 
 
 class cyborg:
-    def __init__(self, board=chess.Board(), color=chess.WHITE, boardScorer=dummyBoardScorer,
-                 probScorer=dummyProbScorer, pointAllocator=dummyPointAllocator, pointsPerMove = 40):
+    def __init__(self, boardScorer, board=chess.Board(), color=chess.WHITE, probScorer=dummyProbScorer,
+                 pointAllocator=dummyPointAllocator, pointsPerMove = 40):
         self.g = nx.DiGraph()
-        self.current_board = board
+        self.current_board = board.copy()
         self.color = color
         self.boardScorer = boardScorer
         self.probScorer = probScorer
@@ -123,9 +115,7 @@ class cyborg:
 
     def addNode(self, (parentBoard, newBoard, c, s, m)):
         self.g.add_node(newBoard.fen(), conf=c, score=s)
-#        print "added\n", newBoard.fen(), "  data ", self.g.node[newBoard.fen()]
         if (m != None):
-#            print 'new edge \n', parentBoard.fen(), "\n", newBoard.fen(), m
             self.g.add_edge(parentBoard.fen(), newBoard.fen(), move=m)
         return
 
@@ -145,7 +135,7 @@ class cyborg:
             board.push(m)
             newBoard = board.copy()
             board.pop()
-            nodeInfo += [(board, newBoard, 1, move_polarity * (self.boardScorer(newBoard, board.turn) - 15), m)] # Confidence of new board is 1
+            nodeInfo += [(board, newBoard, 1, self.boardScorer(newBoard, board.turn) + (move_polarity * 15), m)] # Confidence of new board is 1
         map(self.addNode, nodeInfo)
 #        self.g.node[board.fen()]['conf']=1
         return
@@ -192,10 +182,8 @@ class cyborg:
     # Designed to be the right function for 'game' to call
     def chooseMove( self, board = None ):
 # Need some smarts here that I can't figure out right now
-        self.Build( math.ceil(self.pointsPerMove/4))
-        self.Build( math.ceil(self.pointsPerMove/4))
-        self.Build( math.ceil(self.pointsPerMove/4))
-        self.Build( math.ceil(self.pointsPerMove/4))
+        for i in range(0,8):
+            self.Build( math.ceil(self.pointsPerMove/8))
         print 'Built to ', len(self.g.nodes()), ' nodes'
         return self.getNextMove()
 
