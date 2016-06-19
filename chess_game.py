@@ -205,6 +205,7 @@ class game:
     def apply_move( self, move ):
 #  Add PGN logging when you have a chance
 #        self.pgn_game.
+	self.board.push(move)
         if (self.black_apply != None):
             self.black_apply(move)
         if (self.white_apply != None):
@@ -213,18 +214,15 @@ class game:
 
     def turn( self ):
         exec('w_move = ' + self.white + '(self.board)')
-        self.board.push(w_move)
         self.apply_move(w_move)
         self.debug('White moves: ' + str(w_move) )
         if (self.board.is_game_over()):
             return self.board.result()
         exec('b_move = ' + self.black + '(self.board)')
         print(b_move)
-        self.board.push(b_move)
         self.apply_move(b_move)
         self.debug('Black moves: ' + str(b_move) )
-        if (self.board.is_game_over()):
-            
+        if (self.board.is_game_over()):            
             return self.board.result()
 
     def play( self, pause = True ):
