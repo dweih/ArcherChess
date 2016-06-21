@@ -99,6 +99,16 @@ def printChildren( c, board, prefix, depth, line ):
     return
 
 
+def pruneChildren( graph, nodeList ):
+    children = []
+    print "Culling ", nodeList
+    for child in nodeList:
+        children += graph.neighbors(child)
+        print "removing ", child
+        graph.remove_node(child)
+        pruneChildren( graph, children )
+    return
+
 class cyborg:
     def __init__(self, boardScorer, board=chess.Board(), color=chess.WHITE, probScorer=dummyProbScorer,
                  pointAllocator=dummyPointAllocator, pointsPerMove = 40):
@@ -187,9 +197,15 @@ class cyborg:
         print 'Built to ', len(self.g.nodes()), ' nodes'
         return self.getNextMove()
 
-    def acceptMove( self, move ):
-        # This is where we move current board up the graph to other player's move
+    # This is where we move current board up the graph to other player's move
+    # And optionally delete all non-taken child nodes from previous 'current_board'
+    def acceptMove( self, move, cull = True ):
+#        print "accepting ", move
+        old_fen = self.current_board.fen()
+        cull_list = self.g.neighbors(old_fen)
         self.current_board.push(move)
+        current_fen = self.current_board.fen()
+#        pruneChildren( self.g, cull_list )
         return
 
     def printGraph( self, board = None, depth=3, line=False ):
