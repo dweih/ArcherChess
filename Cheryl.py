@@ -3,8 +3,11 @@ import re
 def Cheryl ( board, color ):
     FENstring = board.fen()
     # early out if it's checkmate
-    #if (board.is_checkmate()):
-     #   return 10000
+    if (board.is_checkmate()):
+        if color == chess.WHITE:
+            return 10000
+        else:
+            return -10000
     return CherylEndgameScore(FENchanger(FENstring))
 
 
@@ -33,18 +36,18 @@ def CherylEndgameScore( ModiFENstring ):
             Endgame += 25
         if P.start() == 36:
             Endgame += 25
-        if P.start() == 43:
+        if P.start() == 27:
             Endgame += 25
-        if P.start() == 44:
+        if P.start() == 28:
             Endgame += 25
     for p in re.finditer('p', FEN):
         if p.start() == 35:
             Endgame += -25
         if p.start() == 36:
             Endgame += -25
-        if p.start() == 43:
+        if p.start() == 27:
             Endgame += -25
-        if p.start() == 44:
+        if p.start() == 28:
             Endgame += -25
     for N in re.finditer('N', FEN):
         if N.start() == 57:
@@ -84,7 +87,6 @@ def CherylEndgameScore( ModiFENstring ):
             Endgame += -50
         if k.start() == 6:
             Endgame += -50
-    
     return Endgame
         
 #def KriegerPiece
