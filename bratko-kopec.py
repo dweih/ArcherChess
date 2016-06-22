@@ -41,6 +41,7 @@ def run_test( c_init_str ):
     for epd in epds.split("\n"):
         position = chess.Board()
         epd_info = position.set_epd(epd)
+        print "\n", position
         turn_string = "chess.BLACK" if position.turn == chess.BLACK else "chess.WHITE"
         exec('c = ' + c_init_str + ', color=' + turn_string + ')', globals(), locals())
         c.current_board = position
