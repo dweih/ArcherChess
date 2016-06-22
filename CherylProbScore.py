@@ -15,4 +15,4 @@ def CherylProbScorer( results, color, my_color ):
 
 def ConfidenceCombiner ( move, color, my_color ):
     conf_polarity = 1 if ((color == chess.WHITE)^(my_color != chess.WHITE)) else -1
-    return move[0]+ conf_polarity * math.log(move[1])
+    return move[0]+ conf_polarity * 0.0001 * move[1]
