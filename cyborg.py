@@ -99,14 +99,22 @@ def printChildren( c, board, prefix, depth, line ):
     return
 
 
-def pruneChildren( graph, nodeList ):
-    children = []
-    print "Culling ", nodeList
-    for child in nodeList:
-        children += graph.neighbors(child)
-        print "removing ", child
-        graph.remove_node(child)
-        pruneChildren( graph, children )
+def markChildren( graph, node, cull_iteration ):
+    to_mark = [node]
+    while len(to_mark) > 0:
+        n = to_mark.pop(0)
+        graph.node[n]['cull_iter'] = cull_iteration
+        to_mark += graph.neighbors(n)
+    return
+
+def pruneChildren( graph, node, cull_less_than ):
+    to_cull = set()
+    to_cull.add(node)
+    while len(to_cull) > 0:
+        n = to_cull.pop()
+        to_cull.update( graph.neighbors(n) )
+        if (graph.node[n]['cull_iter'] <= cull_less_than):
+            graph.remove_node(n)
     return
 
 class cyborg:
@@ -119,7 +127,9 @@ class cyborg:
         self.probScorer = probScorer
         self.pointAllocator = pointAllocator
         self.addNode( (self.current_board, board, 1, 0, None) )
+        self.expandNode( self.current_board )
         self.pointsPerMove = pointsPerMove
+        self.cull_iteration = 0
         return
 
 
@@ -192,8 +202,10 @@ class cyborg:
     # Designed to be the right function for 'game' to call
     def chooseMove( self, board = None ):
 # Need some smarts here that I can't figure out right now
-        for i in range(0,8):
-            self.Build( math.ceil(self.pointsPerMove/8))
+        build_size = 50
+        iterations = self.pointsPerMove / build_size
+        for i in range(0,iterations):
+            self.Build( build_size )
         print 'Built to ', len(self.g.nodes()), ' nodes'
         return self.getNextMove()
 
@@ -205,7 +217,13 @@ class cyborg:
         cull_list = self.g.neighbors(old_fen)
         self.current_board.push(move)
         current_fen = self.current_board.fen()
-#        pruneChildren( self.g, cull_list )
+        # Make sure this node has children
+        expandGraph(self, 1, self.current_board, self.pointAllocator)
+        # This is the mark and then cull pass to remove old nodes
+        markChildren(self.g, old_fen, self.cull_iteration)
+        self.cull_iteration += 1
+        markChildren(self.g, current_fen, self.cull_iteration)
+        pruneChildren( self.g, old_fen, self.cull_iteration-1 )
         return
 
     def printGraph( self, board = None, depth=3, line=False ):
