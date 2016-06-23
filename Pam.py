@@ -2,8 +2,10 @@ import re
 Edgesquares = set([0,7,8,15,16,23,24,31,32,39,40,47,48,55,56,63])
 Blackhome = set([0,1,2,3,4,5,6,7])
 Whitehome = set([56,57,58,59,60,61,62,63])
-Whitebishop = set([25,30,34,37])
-Blackbishop = set([26,29,33,38])
+Blacksecond = set([8,9,10,11,12,13,14,15])
+Whitesecond = set([48,49,50,51,52,53,54,55])
+Whitebishop = set([49,54,25,30,34,37])
+Blackbishop = set([9,14,26,29,33,38])
 Centresquares = set([27,28,35,36])
 Afile = set([0,8,16,24,32,40,48,56])
 Bfile = set([1,9,17,25,33,41,49,57])
@@ -24,15 +26,16 @@ def PamPiece( piece ):
 
 def Pam ( board, color ):
     PileScore=0
-    score_polarity = 1 if (color == chess.WHITE) else -1
+    score_polarity = 1 if (board.turn == chess.WHITE) else -1
     FENstring = board.fen()
     # early out if it's checkmate
     if (board.is_checkmate()):
             return 10000*score_polarity
-    my_squares = allPieceSquares( board, color )
+    their_squares = allPieceSquares( board, board.turn )
+    my_squares = allPieceSquares( board, opColor(board.turn) )
     for sq in my_squares:
-        if (dogPile(board, sq, color)):
-            PileScore -= score_polarity*PamPiece( board.piece_at(sq).piece_type )
+        if (dogPile(board, sq, opColor(board.turn))):
+            PileScore += score_polarity*PamPiece( board.piece_at(sq).piece_type )
     return PamScore(FENchanger(FENstring))+PileScore
 
 
@@ -247,9 +250,13 @@ def PamScore( ModiFENstring ):
         if k.start() == 6:
             Endgame += -50
     for Q in re.finditer('Q', FEN):
+        if Q.start() in Whitesecond:
+            Endgame +=25
         if Q.start() in Whitehome:
             Endgame += 60
     for q in re.finditer('q', FEN):
+        if q.start() in Blacksecond:
+            Endgame += -25
         if q.start() in Blackhome:
             Endgame += -60
             
