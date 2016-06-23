@@ -2,6 +2,7 @@ import networkx as nx
 import chess
 from operator import itemgetter
 import math
+import time
 
 def dummyProbScorer( results, color, my_color ):
     results = sorted(results, key=lambda x:x[0], reverse=((color == chess.WHITE)^(my_color != chess.WHITE))) # Scores are now always high = good
@@ -13,7 +14,7 @@ def dummyProbScorer( results, color, my_color ):
 
 # Takes list of (score, confidence, board), color, and points to invest
 # Returns list of (points, board) for investments
-def dummyPointAllocator( edgeInfo, color, points ):
+def dummyPointAllocator( edgeInfo, color, points, searchWidth ):
     if len(edgeInfo) == 0:
         return []
     if len(edgeInfo) < 3:
@@ -66,14 +67,14 @@ def scoreChild(cyborg, board_fen, probScorer, color):
 # Do we want to have a limit to how far we expand before we re-Score?
 # Especially since by default we'll have no probability info (unless I have a default, eg. 1/moves, or leave probability out of the parameters)
 # Recursively assigns points up the tree based on pointAllocator
-def expandGraph( cyborg, points, board, pointAllocator ):
+def expandGraph( cyborg, points, board, pointAllocator, searchWidth ):
     if points == 0: return
     # Get list of edges from current board and collect required info for pointAllocator
     nextMoves = cyborg.getMoveEdges(board)
     # If points > 0 and board has no children, call expandNode on the board and dec(points)
     if (len(nextMoves) == 0):
         cyborg.expandNode( board )
-        expandGraph( cyborg, points-1, board, pointAllocator)
+        expandGraph( cyborg, points-1, board, pointAllocator, searchWidth)
     # Collect info for pointAllocator - list of (score, confidence, board)
 #  NOT including probability since in current model it won't be avaiilable for edges built on the fly
     paInput = []
@@ -81,10 +82,10 @@ def expandGraph( cyborg, points, board, pointAllocator ):
     for (thisBoard_fen,nextBoard_fen,move) in nextMoves:
         paInput += [(cyborg.g.node[nextBoard_fen]['score'], cyborg.g.node[nextBoard_fen]['conf'],nextBoard_fen)]
     # Get back list of (points to invest, board as fen)
-    investmentList = cyborg.pointAllocator( paInput, board.turn, points )
+    investmentList = cyborg.pointAllocator( paInput, board.turn, points, searchWidth )
     # Call expandGraph for calculated number of points on the board from each move
     for (movePoints, board_fen) in investmentList:
-        expandGraph( cyborg, movePoints, chess.Board(board_fen), pointAllocator)
+        expandGraph( cyborg, movePoints, chess.Board(board_fen), pointAllocator, searchWidth)
 
 def printChildren( c, board, prefix, depth, line ):
     if depth > 0:
@@ -119,7 +120,7 @@ def pruneChildren( graph, node, cull_less_than ):
 
 class cyborg:
     def __init__(self, boardScorer, board=chess.Board(), color=chess.WHITE, probScorer=dummyProbScorer,
-                 pointAllocator=dummyPointAllocator, pointsPerMove = 40):
+                 pointAllocator=dummyPointAllocator, pointsPerMove = 40, timeLimit=0, loadSize=36, searchWidth = 160):
         self.g = nx.DiGraph()
         self.current_board = board.copy()
         self.color = color
@@ -130,8 +131,10 @@ class cyborg:
         self.expandNode( self.current_board )
         self.pointsPerMove = pointsPerMove
         self.cull_iteration = 0
+        self.timeLimit = timeLimit
+        self.loadSize = loadSize
+        self.searchWidth = searchWidth
         return
-
 
     def addNode(self, (parentBoard, newBoard, c, s, m)):
         self.g.add_node(newBoard.fen(), conf=c, score=s)
@@ -143,7 +146,6 @@ class cyborg:
         if (board == None):
             board = c.current_board
         return self.g.out_edges(board.fen(), data=True)
-
 
     def expandNode(self, board):
         # Set confidence to 1 since we're spending a point
@@ -167,7 +169,7 @@ class cyborg:
         return
 
     def Build(self, points):
-        expandGraph(self, points, self.current_board, self.pointAllocator)
+        expandGraph(self, points, self.current_board, self.pointAllocator, self.searchWidth)
         self.Score()
         return
 
@@ -184,29 +186,44 @@ class cyborg:
         edges = self.getMoveEdges( board )
         moves = []
         for (cb,nb,data) in edges:
-            moves += [(self.g.edge[cb][nb]['move'], self.g.node[nb]['score'])]
+            moves += [(self.g.edge[cb][nb]['move'], self.g.node[nb]['prob'])]
         return moves
 
+    # Get moves and probabilites from a board - set up for choosing a move
+    def getProbMoves( self, board = None ):
+        if (board == None):
+            board = self.current_board
+        edges = self.getMoveEdges( board )
+        moves = []
+        for (cb,nb,data) in edges:
+            moves += [(self.g.edge[cb][nb]['move'], self.g.edge[cb][nb]['prob'])]
+        return moves
+ 
     # This just gets the next move, but doesn't play it
     def getNextMove( self, board = None ):
         if (board == None):
             board = self.current_board 
-        scoredMoves = self.getScoredMoves( board )
 #        print scoredMoves
-        if (self.color == chess.WHITE):
-            bestMove = max(scoredMoves,key=itemgetter(1))
-        else:
-            bestMove = min(scoredMoves,key=itemgetter(1))
+        scoredMoves = self.getProbMoves( board )
+        bestMove = max(scoredMoves,key=itemgetter(1))
         return bestMove[0]
 
     # Designed to be the right function for 'game' to call
     def chooseMove( self, board = None ):
 # Need some smarts here that I can't figure out right now
-        build_size = 50
-        iterations = self.pointsPerMove / build_size
-        for i in range(0,iterations):
-            self.Build( build_size )
+        if (self.timeLimit > 0):
+            startTime = time.time()
+            while (time.time() - startTime) < self.timeLimit:
+                self.Build(self.loadSize)
+        else:
+            for i in range(0,7):
+                self.Build( math.ceil(self.pointsPerMove/8))
         print 'Built to ', len(self.g.nodes()), ' nodes'
+        #print 'Plans'
+        #self.printGraph(depth=1)
+##        print 'Expected line'
+##        self.printGraph(depth=99, line=True)
+##        print 'Final move'
         return self.getNextMove()
 
     # This is where we move current board up the graph to other player's move
