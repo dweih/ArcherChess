@@ -5,9 +5,20 @@ import chess
 
 execfile('cyborg.py')
 execfile('chess_game.py')
+execfile('s_b_d_chess_puzzles.py')
+
+#4kb1r/p2n1ppp/4q3/4p1B1/4P3/1Q6/PPP2PPP/2KR4 w k - bm Qb8+; id "Sparkchess 1";"
+#2r2r2/6kp/3p4/3P4/4Pp2/5P1P/PP1pq1P1/4R2K b - - bm dxe1=N; id "Sparkchess 2";"
+
+easy_epds = """\
+r2k2nr/pp1b1Q1p/2n4b/3N4/3q4/3P4/PPP3PP/4RR1K w - - bm Re8; id "sparkchess 3";
+1r3rk1/1pnnq1bR/p1pp2B1/P2P1p2/1PP1pP2/2B3P1/5PK1/2Q4R w - - bm Rh8+; id "Sparkchess 4";
+1r1kr3/Nbppn1pp/1b6/8/6Q1/3B1P2/Pq3P1P/2BRR1K1 w - - bm Qxd7+; id "Sparkchess 5";
+r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - bm Ra6; id "Sparkchess 6";"""
 
 
-epds = """\
+
+b_k_epds = """\
 1k1r4/pp1b1R2/3q2pp/4p3/2B5/4Q3/PPP2B2/2K5 b - - bm Qd1+; id "BK.01";
 3r1k2/4npp1/1ppr3p/p6P/P2PPPP1/1NR5/5K2/2R5 w - - bm d5; id "BK.02";
 2q1rr1k/3bbnnp/p2p1pp1/2pPp3/PpP1P1P1/1P2BNNP/2BQ1PRK/7R b - - bm f5; id "BK.03";
@@ -36,7 +47,7 @@ r2qnrnk/p2b2b1/1p1p2pp/2pPpp2/1PP1P3/PRNBB3/3QNPPP/5RK1 w - - bm f4; id "BK.24";
 
 
 # Takea an initialization function for a cyborg that will be run before each test
-def run_test( c_init_str ):
+def run_test( c_init_str, epds = b_k_epds ):
     score = 0.0
     for epd in epds.split("\n"):
         position = chess.Board()
